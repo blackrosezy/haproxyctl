@@ -145,7 +145,6 @@ function sync() {
         docker exec "$haproxy_container_id" bash -c "mv /tmp/haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg; exit"
         
         echo " => Restarting haproxy..."
-        #docker exec "$haproxy_container_id" bash -c "pkill haproxy; exit"
         new_id="$(docker restart --time=0 "$haproxy_container_id")"
         echo " => Restarted [$new_id - OK]"
     else
@@ -154,8 +153,6 @@ function sync() {
     fi
     
     echo " => Done."
-    
-    #echo "$tmp_template" > $g_haproxy_cfg
 }
 
 function show_active_containers() {
