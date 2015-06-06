@@ -5,9 +5,9 @@
 #
 g_counter=1
 
-g_config_file='.haproxyctl.cfg'
+g_config_file='/root/.haproxyctl.cfg'
 
-g_haproxy_cfg='haproxy.cfg'
+#g_haproxy_cfg='haproxy.cfg'
 
 #
 #   Template
@@ -55,6 +55,18 @@ function get_container_ip() {
     return 0
 }
 
+function get_haproxy_container() {
+    for i in $(docker ps -q)
+    do
+        if [ -n "$(docker inspect --format '{{.Name }}' $i | grep haproxy)" ]; then
+            echo "$i"
+            return 0
+        fi
+    done
+    
+    return 0
+}
+
 function update_template() {
     if [ $# -ne 3 ]
     then
@@ -77,7 +89,7 @@ function update_template() {
     option forwardfor
     server s2 $ip:$port maxconn 32"
     tmp_template="$(echo "$tmp_template" | perl -pe "s/\Q#__BACKEND__/$backend_template\n\n#__BACKEND__/g")"
-    
+
     echo "$tmp_template"
     return 0
 }
@@ -99,12 +111,48 @@ function sync() {
     while read -r line; do
         url="$(echo $line | cut -d " " -f 1)"
         container_name="$(echo $line | cut -d " " -f 2)"
-        tmp_template=$(update_template $url $container_name 80)
+        ip=$(get_container_ip $container_name)
+        
+        if [ -z "$ip" ]; then
+            echo " => [SKIP] Cannot find container '$container_name' for url '$url'"
+            continue
+        else
+            echo " => [ OK ] Container: '$container_name', Url: '$url'"
+        fi
+        
+        tmp_template=$(update_template $url $ip 80)
         haproxy_template="$tmp_template"
         let g_counter++
     done <<< "$(jq -r '. | map("\(.url) \(.container_name)") | join("\n")'  $g_config_file)"
+    
     tmp_template="$(cleanup_template "$haproxy_template")"
-    echo "$tmp_template" > $g_haproxy_cfg
+
+    haproxy_container_id="$(get_haproxy_container)"
+    if [ -z $haproxy_container_id ]; then
+        echo " => Cannot find 'haproxy' container"
+        return 1
+    fi
+    
+    docker exec "$haproxy_container_id" bash -c "echo \"$tmp_template\" > /tmp/haproxy.cfg; exit"
+
+    if docker exec "$haproxy_container_id" bash -c "haproxy -q -c -f /usr/local/etc/haproxy/haproxy.cfg > /dev/null 2>&1; exit"; then
+        echo " => Haproxy config is OK"
+        docker exec "$haproxy_container_id" bash -c "mv /tmp/haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg; exit"
+        
+        echo " => Restarting haproxy..."
+        docker exec "$haproxy_container_id" bash -c "pkill haproxy; exit"
+    else
+        echo " => Haproxy config contains error!"
+        return 1
+    fi
+    
+    echo " => Done."
+    
+    #echo "$tmp_template" > $g_haproxy_cfg
+}
+
+function show_active_containers() {
+    docker inspect --format '{{.Name }}' $(docker ps -q)
 }
 
 function help() {
@@ -130,6 +178,9 @@ then
     if [ $1 == "sync" ]; then
         sync
         exit 0
+    elif [ $1 == "containers" ]; then
+        show_active_containers
+        exit 0
     fi
 elif [ $# -eq 2 ]
 then
@@ -152,9 +203,5 @@ then
     fi    
 fi
 
-sync
 help
 exit 0
-
-b=$(get_container_ip haproxy)
-echo $b
