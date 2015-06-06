@@ -113,6 +113,11 @@ function sync() {
         container_name="$(echo $line | cut -d " " -f 2)"
         ip=$(get_container_ip $container_name)
         
+        if [ -z "$container_name" ]; then
+            echo " => [SKIP] Configuration is empty. Skipping everything."
+            return 0
+        fi
+        
         if [ -z "$ip" ]; then
             echo " => [SKIP] Cannot find container '$container_name' for url '$url'"
             continue
@@ -140,7 +145,9 @@ function sync() {
         docker exec "$haproxy_container_id" bash -c "mv /tmp/haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg; exit"
         
         echo " => Restarting haproxy..."
-        docker exec "$haproxy_container_id" bash -c "pkill haproxy; exit"
+        #docker exec "$haproxy_container_id" bash -c "pkill haproxy; exit"
+        new_id="$(docker restart --time=0 "$haproxy_container_id")"
+        echo " => Restarted [$new_id - OK]"
     else
         echo " => Haproxy config contains error!"
         return 1
@@ -167,6 +174,16 @@ function help() {
 # remove  <domain>
 # sync
 
+if ! type jq > /dev/null 2>&1
+then
+    echo " => Cannot find jq. Please install jq from https://github.com/stedolan/jq/releases"
+    exit 0
+fi
+
+if [[ $EUID -ne 0 ]]; then
+   echo " => This script must be run as root" 
+   exit 1
+fi
 
 if [ ! -f $g_config_file ] || [ ! "$(jq '.' $g_config_file)" ]
 then
