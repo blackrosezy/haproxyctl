@@ -1,0 +1,30 @@
+global
+    maxconn 4096
+
+defaults
+    mode http
+    timeout connect 5000ms
+    timeout client 50000ms
+    timeout server 50000ms
+
+frontend http-in
+    bind *:80
+    {% for item in items %}
+    acl is_site{{ item.id }} hdr_end(host) -i {{ item.url }}
+    {% endfor %}
+
+    {% for item in items %}
+    use_backend site{{ item.id }} if is_site{{ item.id }}
+    {% endfor %}
+
+{% for item in items %}
+backend site{{ item.id }}
+    balance roundrobin
+    option httpclose
+    option forwardfor
+    server s2 {{ item.ip }}:{{ item.port }} maxconn 32
+
+{% endfor %}
+listen admin
+    bind 127.0.0.1:8080
+    stats enable
