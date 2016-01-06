@@ -31,10 +31,17 @@ class Haproxyctl:
         self.__haproxy_template_file = 'haproxy.jinja'
         self.__haproxy_config_file = 'haproxy.cfg'
         self.__haproxy_config_path = '/usr/local/etc/haproxy/'
-        self.__haproxy_container_name = 'haproxy1'
+        self.__haproxy_container_id = None
         self.__docker_client = Client(base_url='unix://var/run/docker.sock')
 
-    # def get_haproxy_container(self):
+    def get_haproxy_container(self):
+        containers = self.__docker_client.containers()
+        for container in containers:
+            for name in container['Names']:
+                if 'haproxy' in name.lower():
+                    self.__haproxy_container_id = container['Id']
+                    return self.__haproxy_container_id
+        return None
 
     def get_container_ip(self, container_name):
         try:
@@ -94,7 +101,7 @@ class Haproxyctl:
                 print " => [ OK ] Url: '%s', Container: '%s', IP:%s, Port:%s" % (
                     item['url'], item['container_name'], ip, item['port'])
             else:
-                print " => [ OK ] Url: '%s', Container: '%s'(not found), IP:N/A, Port:%s" % (
+                print " => [SKIP] Url: '%s', Container: '%s'(not found), IP:N/A, Port:%s" % (
                     item['url'], item['container_name'], item['port'])
 
         f.write(template.render(items=items))
@@ -106,11 +113,11 @@ class Haproxyctl:
         tar.add(self.__haproxy_config_file)
         tar.close()
         tar_content = si.getvalue()
-        self.__docker_client.put_archive(self.__haproxy_container_name, self.__haproxy_config_path, tar_content)
+        self.__docker_client.put_archive(self.__haproxy_container_id, self.__haproxy_config_path, tar_content)
 
     def test_haproxy_config(self):
         cmd = "haproxy -c -f %s%s 2>&1" % (self.__haproxy_config_path, self.__haproxy_config_file)
-        res = self.__docker_client.exec_create(container=self.__haproxy_container_name, cmd=['bash', '-c', cmd])
+        res = self.__docker_client.exec_create(container=self.__haproxy_container_id, cmd=['bash', '-c', cmd])
         output = self.__docker_client.exec_start(res)
         output = output.strip()
         if output == "Configuration file is valid":
@@ -122,7 +129,7 @@ class Haproxyctl:
 
     def restart_haproxy_container(self):
         print " => Restarting haproxy..."
-        self.__docker_client.restart(container=self.__haproxy_container_name, timeout=0)
+        self.__docker_client.restart(container=self.__haproxy_container_id, timeout=0)
         print " => Restarted."
 
 
@@ -132,31 +139,35 @@ if __name__ == '__main__':
     if not os.geteuid() == 0:
         sys.exit(' => Script must be run as root!')
 
-    haproxyctl = Haproxyctl()
+    hctl = Haproxyctl()
+
+    if hctl.get_haproxy_container() is None:
+        sys.exit(' => Cannot find any Haproxy container, exiting.')
+
     if arguments['rm'] and arguments['<url>'] is not None:
-        config_content = haproxyctl.read_config_file()
-        config_content = haproxyctl.remove_url(arguments['<url>'], config_content)
-        haproxyctl.write_config_file(config_content)
-        haproxyctl.generate_haproxy_config(config_content)
-        haproxyctl.update_haproxy_config()
-        if haproxyctl.test_haproxy_config():
-            haproxyctl.restart_haproxy_container()
+        config_content = hctl.read_config_file()
+        config_content = hctl.remove_url(arguments['<url>'], config_content)
+        hctl.write_config_file(config_content)
+        hctl.generate_haproxy_config(config_content)
+        hctl.update_haproxy_config()
+        if hctl.test_haproxy_config():
+            hctl.restart_haproxy_container()
 
     if arguments['add'] and arguments['<url>'] is not None and arguments['<container_name>'] is not None:
-        config_content = haproxyctl.read_config_file()
-        config_content = haproxyctl.add_url(arguments['<url>'], arguments['<container_name>'], arguments['<port>'],
-                                            config_content)
-        haproxyctl.write_config_file(config_content)
-        haproxyctl.generate_haproxy_config(config_content)
-        haproxyctl.update_haproxy_config()
-        if haproxyctl.test_haproxy_config():
-            haproxyctl.restart_haproxy_container()
+        config_content = hctl.read_config_file()
+        config_content = hctl.add_url(arguments['<url>'], arguments['<container_name>'], arguments['<port>'],
+                                      config_content)
+        hctl.write_config_file(config_content)
+        hctl.generate_haproxy_config(config_content)
+        hctl.update_haproxy_config()
+        if hctl.test_haproxy_config():
+            hctl.restart_haproxy_container()
 
     if arguments['sync']:
-        config_content = haproxyctl.read_config_file()
-        haproxyctl.generate_haproxy_config(config_content)
-        haproxyctl.update_haproxy_config()
-        if haproxyctl.test_haproxy_config():
-            haproxyctl.restart_haproxy_container()
+        config_content = hctl.read_config_file()
+        hctl.generate_haproxy_config(config_content)
+        hctl.update_haproxy_config()
+        if hctl.test_haproxy_config():
+            hctl.restart_haproxy_container()
 
     print " => Done."
