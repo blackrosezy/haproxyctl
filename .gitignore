@@ -1,3 +1,5 @@
 **.vagrant
 **.idea
 haproxy.cfg
+dist
+**.egg-info

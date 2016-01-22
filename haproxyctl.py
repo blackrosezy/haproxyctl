@@ -64,7 +64,7 @@ class Haproxyctl:
             json.dump(existing_config, f_handle, sort_keys=True, indent=4, ensure_ascii=False)
 
     def add_url(self, url, container_name, port, existing_config):
-        if port is not None:
+        if port is None:
             port = 80
 
         for item in existing_config:
@@ -133,8 +133,8 @@ class Haproxyctl:
         print " => Restarted."
 
 
-if __name__ == '__main__':
-    arguments = docopt(__doc__, version='haproxyctl 1.0')
+def main():
+    arguments = docopt(__doc__, version='haproxyctl 0.1.0')
 
     if not os.geteuid() == 0:
         sys.exit(' => Script must be run as root!')
@@ -171,3 +171,7 @@ if __name__ == '__main__':
             hctl.restart_haproxy_container()
 
     print " => Done."
+
+
+if __name__ == '__main__':
+    main()

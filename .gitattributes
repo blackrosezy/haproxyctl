@@ -1,1 +1,2 @@
 haproxyctl.py -crlf
+bin/haproxyctl -crlf
