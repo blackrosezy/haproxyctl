@@ -1,2 +1,1 @@
-include haproxyctl.py
-recursive-include templates *
+recursive-include haproxyctl/templates *
