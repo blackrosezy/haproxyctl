@@ -51,7 +51,7 @@ class Haproxyctl:
             return None
 
     def read_config_file(self):
-        with open(self.__haproxyctl_config_file) as f_handle:
+        with open(self.__haproxyctl_config_file, 'w+') as f_handle:
             try:
                 json_data = json.load(f_handle)
                 return json_data

@@ -1,7 +1,7 @@
 $script = <<SCRIPT
     if ! type fig > /dev/null 2>&1
     then
-        curl -o /usr/local/bin/fig -L https://github.com/docker/compose/releases/download/1.5.1/docker-compose-Linux-x86_64
+        curl -o /usr/local/bin/fig -L https://www.dropbox.com/s/64yi3c1px4l9rq9/docker-compose-Linux-x86_64?dl=1
         chmod +x /usr/local/bin/fig
     fi
     
@@ -13,22 +13,20 @@ $script = <<SCRIPT
         curl -o /usr/local/bin/n -L https://raw.githubusercontent.com/blackrosezy/docker-essential-tools/master/n && chmod +x /usr/local/bin/n
     fi
     
-    if ! type jq > /dev/null 2>&1
-    then
-        curl -o /usr/local/bin/jq -L https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64
-        chmod +x /usr/local/bin/jq
-    fi
+    mkdir /packaging && cp -r /vagrant/* /packaging
+    cd /packaging && python setup.py sdist
     
-    docker pull nginx:latest
-    docker stop web1 && docker rm -f web1
-    cd /vagrant/vagrant-assets/nginx && docker build -t my-nginx .
-    docker run -d --restart=always --name web1 my-nginx
+    apt-get install python-pip -y
     
-    docker pull haproxy:latest
-    docker stop haproxy1 && docker rm -f haproxy1
-    cd /vagrant/vagrant-assets/haproxy && docker build -t my-haproxy .
-    docker run -d -p "80:80" --restart=always --name haproxy1 my-haproxy
+    # nginx
+    cd /vagrant/vagrant-assets/nginx
+    fig build --no-cache && fig up -d
     
+    # haproxy
+    #cd /vagrant/vagrant-assets/haproxy
+    #fig build --no-cache && fig up -d
+
+    # cleanup
     docb
 SCRIPT
 
@@ -45,7 +43,9 @@ Vagrant.configure(2) do |config|
     v.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
   end
   
-  config.vm.network "forwarded_port", guest: 80, host: 80
+  config.vm.network "forwarded_port", guest: 80, host: 8080
+  config.vm.network "forwarded_port", guest: 9000, host: 9000
+  config.vm.network "forwarded_port", guest: 3306, host: 3307
   
   config.ssh.insert_key = false
   config.ssh.forward_agent = true

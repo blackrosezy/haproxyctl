@@ -10,6 +10,7 @@ setup(
         author_email='blackrosezy@gmail.com',
         packages=['haproxyctl'],
         description='Haproxy reverse proxy cli',
+        url='http://morzproject.com',
         install_requires=[
             "Jinja2>=2.8",
             "docker-py>=1.6.0",

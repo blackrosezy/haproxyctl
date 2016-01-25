@@ -1,5 +1,7 @@
-FROM nginx:latest
+FROM morz/nginx
+
+MAINTAINER Mohd Rozi <blackrosezy@gmail.com>
 
 COPY default /etc/nginx/sites-available/default
 
-EXPOSE 8000
+CMD ["nginx", "-g", "daemon off;"]
