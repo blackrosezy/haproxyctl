@@ -13,18 +13,18 @@ $script = <<SCRIPT
         curl -o /usr/local/bin/n -L https://raw.githubusercontent.com/blackrosezy/docker-essential-tools/master/n && chmod +x /usr/local/bin/n
     fi
     
+    apt-get install python-pip -y
+    
     mkdir /packaging && cp -r /vagrant/* /packaging
     cd /packaging && python setup.py sdist
-    
-    apt-get install python-pip -y
     
     # nginx
     cd /vagrant/vagrant-assets/nginx
     fig build --no-cache && fig up -d
     
     # haproxy
-    #cd /vagrant/vagrant-assets/haproxy
-    #fig build --no-cache && fig up -d
+    cd /vagrant/vagrant-assets/haproxy
+    fig build --no-cache && fig up -d
 
     # cleanup
     docb
