@@ -15,14 +15,15 @@ Options:
 
 """
 
+import json
+import os
+import pkg_resources
+import sys
+import tarfile
 from cStringIO import StringIO
 from docker import Client, errors
 from docopt import docopt
 from jinja2 import Environment, FileSystemLoader, Template
-import json
-import os
-import sys
-import tarfile
 
 
 class Haproxyctl:
@@ -88,7 +89,8 @@ class Haproxyctl:
         return existing_config
 
     def generate_haproxy_config(self, new_config):
-        env = Environment(loader=FileSystemLoader('templates'), trim_blocks=True)
+        env = Environment(loader=FileSystemLoader(pkg_resources.resource_filename('haproxyctl', 'templates')),
+                          trim_blocks=True)
         template = env.get_template(self.__haproxy_template_file)
         f = open(self.__haproxy_config_file, 'w')
         items = []
